@@ -1,7 +1,7 @@
 # lambda-cloudwatch-fleep
 
 An [AWS Lambda](http://aws.amazon.com/lambda/) function for better
-Fleep (based on the original Slack)
+Fleep (based on the original Slack repo (assertible/lambda-cloudwatch-slack))
 notifications. [Check out the blog post](https://assertible.com/blog/npm-package-lambda-cloudwatch-slack).
 
 [![BuildStatus](https://travis-ci.org/assertible/lambda-cloudwatch-slack.png?branch=master)](https://travis-ci.org/assertible/lambda-cloudwatch-slack)
