@@ -95,12 +95,11 @@ const handleCodeDeploy = (event, context, callback) => {
 	const subject = 'AWS CodeDeploy Notification';
 	const timestamp = event.Records[0].Sns.Timestamp;
 	const snsSubject = event.Records[0].Sns.Subject;
-	const message = event.Records[0].Sns.Message;
-	const messageParsed = JSON.parse(message);
 	var status = fleepStatus.WARNING;
 	var compiled;
 
 	try {
+		const messageParsed = JSON.parse(event.Records[0].Sns.Message);
 		if(messageParsed.status === 'SUCCEEDED'){
 			status = fleepStatus.GOOD;
 		} else if(messageParsed.status === 'FAILED'){
@@ -116,6 +115,7 @@ const handleCodeDeploy = (event, context, callback) => {
 			'\n *Timestamp:* ' + timestamp;
 	}
 	catch(e) {
+		const message = event.Records[0].Sns.Message;
 		status = fleepStatus.GOOD;
 
 		compiled =
