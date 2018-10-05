@@ -47,9 +47,10 @@ const postMessage = (message, callback) => {
 	postReq.end();
 };
 
-const handleElasticBeanstalk = (event) => {
+const handleElasticBeanstalk = (event, context, callback) => {
 	const subject = event.Records[0].Sns.Subject || 'AWS Elastic Beanstalk Notification';
 	const message = event.Records[0].Sns.Message;
+	const timestamp = event.Records[0].Sns.Timestamp;
 	
 	const stateRed = message.indexOf(' to RED');
 	const stateSevere = message.indexOf(' to Severe');
@@ -78,8 +79,10 @@ const handleElasticBeanstalk = (event) => {
 	}
 	
 	const compiled = 
-		status + ' *' + subject + '* \n' + 
-		JSON.parse(message);
+		status + ' *' + subject + '*' + 
+		'\n *Subject:* ' + event.Records[0].Sns.Subject +
+		'\n *Message:* ' + message +
+		'\n *Timestamp:* ' + timestamp;
 
 	const fleepMessage = {
 		message: compiled
@@ -88,40 +91,37 @@ const handleElasticBeanstalk = (event) => {
 	return _.merge(fleepMessage, baseFleepMessage);
 };
 
-const handleCodeDeploy = (event) => {
+const handleCodeDeploy = (event, context, callback) => {
 	const subject = 'AWS CodeDeploy Notification';
-	const timestamp = (new Date(event.Records[0].Sns.Timestamp)).getTime()/1000;
+	const timestamp = event.Records[0].Sns.Timestamp;
 	const snsSubject = event.Records[0].Sns.Subject;
-	var message;
+	const message = event.Records[0].Sns.Message;
+	const messageParsed = JSON.parse(message);
 	var status = fleepStatus.WARNING;
 	var compiled;
 
 	try {
-		message = JSON.parse(event.Records[0].Sns.Message);
-		
-		if(message.status === 'SUCCEEDED'){
+		if(messageParsed.status === 'SUCCEEDED'){
 			status = fleepStatus.GOOD;
-		} else if(message.status === 'FAILED'){
+		} else if(messageParsed.status === 'FAILED'){
 			status = fleepStatus.DANGER;
 		}
 
 		compiled = 
-			status + ' *' + subject + '* \n' +
-			snsSubject + 
-			'\n' + message +
-			'\n *Deployment Group:* ' + message.deploymentGroupName +
-			'\n *Application:* ' + message.applicationName +
-			'\n *Status Link:* ' + 'https://console.aws.amazon.com/codedeploy/home?region=' + message.region + '#/deployments/' + message.deploymentId +
+			status + ' *' + subject + '*' +
+			'\n *Message:* ' + snsSubject +
+			'\n *Deployment Group:* ' + messageParsed.deploymentGroupName +
+			'\n *Application:* ' + messageParsed.applicationName +
+			'\n *Status Link:* ' + 'https://console.aws.amazon.com/codedeploy/home?region=' + messageParsed.region + '#/deployments/' + messageParsed.deploymentId +
 			'\n *Timestamp:* ' + timestamp;
 	}
 	catch(e) {
 		status = fleepStatus.GOOD;
-		message = event.Records[0].Sns.Message;
 
 		compiled =
-			status + ' *' + subject + '* \n' +
-			snsSubject +
-			'\n' + message +
+			status + ' *' + subject + '*' +
+			'\n *Message:* ' + snsSubject +
+			'\n *Details:* ' + message +
 			'\n *Timestamp:* ' + timestamp;
 	}
 	
@@ -133,49 +133,49 @@ const handleCodeDeploy = (event) => {
 	return _.merge(fleepMessage, baseFleepMessage);
 };
 
-const handleCodePipeline = (event) => {
+const handleCodePipeline = (event, context, callback) => {
 	const subject = 'AWS CodePipeline Notification';
-	const timestamp = (new Date(event.Records[0].Sns.Timestamp)).getTime()/1000;
-	var message;
+	const timestamp = event.Records[0].Sns.Timestamp;
+	const snsSubject = event.Records[0].Sns.Subject;
+	const message = event.Records[0].Sns.Message;
+	var messageParsed;
 	var status = fleepStatus.WARNING;
 	var changeType = '';
 	var compiled;
 	
 	try {
-		message = JSON.parse(event.Records[0].Sns.Message);
-		const detailType = message['detail-type'];
+		messageParsed = JSON.parse(event.Records[0].Sns.Message);
+		const detailType = messageParsed['detail-type'];
 		
 		if(detailType === 'CodePipeline Pipeline Execution State Change'){
 			changeType = '';
 		} else if(detailType === 'CodePipeline Stage Execution State Change'){
-			changeType = 'STAGE ' + message.detail.stage;
+			changeType = 'STAGE ' + messageParsed.detail.stage;
 		} else if(detailType === 'CodePipeline Action Execution State Change'){
 			changeType = 'ACTION';
 		}
 		
-		if(message.detail.state === 'SUCCEEDED'){
+		if(messageParsed.detail.state === 'SUCCEEDED'){
 			status = fleepStatus.GOOD;
-		} else if(message.detail.state === 'FAILED'){
+		} else if(messageParsed.detail.state === 'FAILED'){
 			status = fleepStatus.DANGER;
 		}
 
 		compiled =
-			status + ' *' + subject + '* \n' +
-			'\n' + message +
-			'\n *' + message.detail.state + ':* CodePipeline ' + changeType +
-			'\n *Pipeline:* ' + message.detail.pipeline +
-			'\n *Region:* ' + message.region +
-			'\n *Status Link:* ' + 'https://console.aws.amazon.com/codepipeline/home?region=' + message.region + '#/view/' + message.detail.pipeline +
+			status + ' *' + subject + '*' +
+			'\n *Message:* ' + messageParsed.detail.state + ': CodePipeline ' + changeType +
+			'\n *Pipeline:* ' + messageParsed.detail.pipeline +
+			'\n *Region:* ' + messageParsed.region +
+			'\n *Status Link:* ' + 'https://console.aws.amazon.com/codepipeline/home?region=' + messageParsed.region + '#/view/' + messageParsed.detail.pipeline +
 			'\n *Timestamp:* ' + timestamp;
 	}
 	catch(e) {
 		status = fleepStatus.GOOD;
-		message = event.Records[0].Sns.Message;
 
 		compiled =
-			status + ' *' + subject + '* \n' +
-			'\n' + message +
-			'\n *' + message.detail.state + ':* CodePipeline ' + changeType +
+			status + ' *' + subject + '*' +
+			'\n *Message:* ' + messageParsed.detail.state + ': CodePipeline ' + messageParsed.detail.pipeline +
+			'\n *Detail:* ' + message +
 			'\n *Timestamp:* ' + timestamp;
 	}
 	
@@ -187,23 +187,22 @@ const handleCodePipeline = (event) => {
 	return _.merge(fleepMessage, baseFleepMessage);
 };
 
-const handleElasticache = (event) => {
+const handleElasticache = (event, context, callback) => {
 	const subject = 'AWS ElastiCache Notification';
-	const message = JSON.parse(event.Records[0].Sns.Message);
-	const timestamp = (new Date(event.Records[0].Sns.Timestamp)).getTime()/1000;
+	const messageParsed = JSON.parse(event.Records[0].Sns.Message);
+	const timestamp = event.Records[0].Sns.Timestamp;
 	const region = event.Records[0].EventSubscriptionArn.split(':')[3];
 	var eventname, nodename;
 	var status = fleepStatus.GOOD;
 	
-	for(const key in message){
+	for(const key in messageParsed){
 		eventname = key;
-		nodename = message[key];
+		nodename = messageParsed[key];
 		break;
 	}
 
 	const compiled =
-		status + ' *' + subject + '* \n' +
-		'\n' + message +
+		status + ' *' + subject + '*' +
 		'\n *Event:* ' + eventname.split(':')[1] +
 		'\n *Node:* ' + nodename +
 		'\n *Link to cache node:* ' + 'https://console.aws.amazon.com/elasticache/home?region=' + region + '#cache-nodes:id=' + nodename + ';nodes' +
@@ -215,28 +214,27 @@ const handleElasticache = (event) => {
 	return _.merge(fleepMessage, baseFleepMessage);
 };
 
-const handleCloudWatch = (event) => {
-	const timestamp = (new Date(event.Records[0].Sns.Timestamp)).getTime()/1000;
-	const message = JSON.parse(event.Records[0].Sns.Message);
+const handleCloudWatch = (event, context, callback) => {
+	const timestamp = event.Records[0].Sns.Timestamp;
+	const messageParsed = JSON.parse(event.Records[0].Sns.Message);
 	const region = event.Records[0].EventSubscriptionArn.split(':')[3];
 	const subject = 'AWS CloudWatch Notification';
-	const alarmName = message.AlarmName;
-	const metricName = message.Trigger.MetricName;
-	const oldState = message.OldStateValue;
-	const newState = message.NewStateValue;
-	const alarmReason = message.NewStateReason;
-	const trigger = message.Trigger;
+	const alarmName = messageParsed.AlarmName;
+	const metricName = messageParsed.Trigger.MetricName;
+	const oldState = messageParsed.OldStateValue;
+	const newState = messageParsed.NewStateValue;
+	const alarmReason = messageParsed.NewStateReason;
+	const trigger = messageParsed.Trigger;
 	var status = fleepStatus.WARNING;
 	
-	if (message.NewStateValue === 'ALARM') {
+	if (messageParsed.NewStateValue === 'ALARM') {
 		status = fleepStatus.DANGER;
-	} else if (message.NewStateValue === 'OK') {
+	} else if (messageParsed.NewStateValue === 'OK') {
 		status = fleepStatus.GOOD;
 	}
 	
 	const compiled =
-		status + ' *' + subject + '* \n' +
-		'\n' + message +
+		status + ' *' + subject + '*' +
 		'\n *Alarm Name:* ' + alarmName +
 		'\n *Alarm Description:* ' + alarmReason +
 		'\n *Trigger:* ' + trigger.Statistic + ' ' +
@@ -256,20 +254,19 @@ const handleCloudWatch = (event) => {
 	return _.merge(fleepMessage, baseFleepMessage);
 };
 
-const handleAutoScaling = (event) => {
+const handleAutoScaling = (event, context, callback) => {
 	const subject = 'AWS AutoScaling Notification';
-	const message = JSON.parse(event.Records[0].Sns.Message);
+	const messageParsed = JSON.parse(event.Records[0].Sns.Message);
 	const snsSubject = event.Records[0].Sns.Subject;
-	const timestamp = (new Date(event.Records[0].Sns.Timestamp)).getTime()/1000;
+	const timestamp = event.Records[0].Sns.Timestamp;
 	var status = fleepStatus.GOOD;
 	
 	const compiled =
-		status + ' *' + subject + '* \n' +
-		snsSubject +
-		'\n' + message +
-		'\n *Description:* ' + message.Description +
-		'\n *Event:* ' + message.Event +
-		'\n *Cause:* ' + message.Cause +
+		status + ' *' + subject + '*' +
+		'\n *Message:* ' + snsSubject +
+		'\n *Description:* ' + messageParsed.Description +
+		'\n *Event:* ' + messageParsed.Event +
+		'\n *Cause:* ' + messageParsed.Cause +
 		'\n *Timestamp:* ' + timestamp;
 
 	const fleepMessage = {
@@ -278,31 +275,31 @@ const handleAutoScaling = (event) => {
 	return _.merge(fleepMessage, baseFleepMessage);
 };
 
-const handleCatchAll = (event) => {
+const handleCatchAll = (event, context, callback) => {
 	const record = event.Records[0];
-	const subject = record.Sns.Subject;
-	const timestamp = new Date(record.Sns.Timestamp).getTime() / 1000;
-	const message = JSON.parse(record.Sns.Message);
+	const snsSubject = record.Sns.Subject;
+	const timestamp = record.Sns.Timestamp;
+	const messageParsed = JSON.parse(record.Sns.Message);
 	var status = fleepStatus.WARNING;
 	
-	if (message.NewStateValue === 'ALARM') {
+	if (messageParsed.NewStateValue === 'ALARM') {
 		status = fleepStatus.DANGER;
-	} else if (message.NewStateValue === 'OK') {
+	} else if (messageParsed.NewStateValue === 'OK') {
 		status = fleepStatus.GOOD;
 	}
 	
 	// Add all of the values from the event message to the Slack message description
 	var description = '';
-	for(const key in message) {
-		const renderedMessage = typeof message[key] === 'object'
-			? JSON.stringify(message[key])
-			: message[key];
+	for(const key in messageParsed) {
+		const renderedMessage = typeof messageParsed[key] === 'object'
+			? JSON.stringify(messageParsed[key])
+			: messageParsed[key];
 		description = description + '\n' + key + ': ' + renderedMessage;
 	}
 	
 	const compiled =
-		status + ' *' + subject + '* \n' +
-		'\n' + message +
+		status + ' *' + snsSubject + '*' +
+		'\n *Message:* ' + snsSubject +
 		'\n *Description:* ' + description +
 		'\n *Timestamp:* ' + timestamp;
 
@@ -313,7 +310,7 @@ const handleCatchAll = (event) => {
 	return _.merge(fleepMessage, baseFleepMessage);
 };
 
-const processEvent = (event, context) => {
+const processEvent = (event, context, callback) => {
 	console.log('sns received:' + JSON.stringify(event, null, 2));
 	var fleepMessage = null;
 	const eventSubscriptionArn = event.Records[0].EventSubscriptionArn;
@@ -322,40 +319,40 @@ const processEvent = (event, context) => {
 	
 	if(eventSubscriptionArn.indexOf(config.services.codepipeline.match_text) > -1 || eventSnsSubject.indexOf(config.services.codepipeline.match_text) > -1 || eventSnsMessage.indexOf(config.services.codepipeline.match_text) > -1){
 		console.log('processing codepipeline notification');
-		fleepMessage = handleCodePipeline(event,context);
+		fleepMessage = handleCodePipeline(event, context, callback);
 	}
 	else if(eventSubscriptionArn.indexOf(config.services.elasticbeanstalk.match_text) > -1 || eventSnsSubject.indexOf(config.services.elasticbeanstalk.match_text) > -1 || eventSnsMessage.indexOf(config.services.elasticbeanstalk.match_text) > -1){
 		console.log('processing elasticbeanstalk notification');
-		fleepMessage = handleElasticBeanstalk(event,context);
+		fleepMessage = handleElasticBeanstalk(event, context, callback);
 	}
 	else if(eventSubscriptionArn.indexOf(config.services.cloudwatch.match_text) > -1 || eventSnsSubject.indexOf(config.services.cloudwatch.match_text) > -1 || eventSnsMessage.indexOf(config.services.cloudwatch.match_text) > -1){
 		console.log('processing cloudwatch notification');
-		fleepMessage = handleCloudWatch(event,context);
+		fleepMessage = handleCloudWatch(event, context, callback);
 	}
 	else if(eventSubscriptionArn.indexOf(config.services.codedeploy.match_text) > -1 || eventSnsSubject.indexOf(config.services.codedeploy.match_text) > -1 || eventSnsMessage.indexOf(config.services.codedeploy.match_text) > -1){
 		console.log('processing codedeploy notification');
-		fleepMessage = handleCodeDeploy(event,context);
+		fleepMessage = handleCodeDeploy(event, context, callback);
 	}
 	else if(eventSubscriptionArn.indexOf(config.services.elasticache.match_text) > -1 || eventSnsSubject.indexOf(config.services.elasticache.match_text) > -1 || eventSnsMessage.indexOf(config.services.elasticache.match_text) > -1){
 		console.log('processing elasticache notification');
-		fleepMessage = handleElasticache(event,context);
+		fleepMessage = handleElasticache(event, context, callback);
 	}
 	else if(eventSubscriptionArn.indexOf(config.services.autoscaling.match_text) > -1 || eventSnsSubject.indexOf(config.services.autoscaling.match_text) > -1 || eventSnsMessage.indexOf(config.services.autoscaling.match_text) > -1){
 		console.log('processing autoscaling notification');
-		fleepMessage = handleAutoScaling(event, context);
+		fleepMessage = handleAutoScaling(event, context, callback);
 	}
 	else{
-		fleepMessage = handleCatchAll(event, context);
+		fleepMessage = handleCatchAll(event, context, callback);
 	}
 	
 	postMessage(fleepMessage, response => {
 		if (response.statusCode < 400) {
 			console.info('message posted successfully');
-			context.succeed();
+			callback(null, event);
 		} else if (response.statusCode < 500) {
 			console.error('error posting message to slack API: ' + response.statusCode + ' - ' + response.statusMessage);
 			// Don't retry because the error is due to a problem with the request
-			context.succeed();
+			callback(null, event);
 		} else {
 			// Let Lambda retry
 			context.fail('server error when processing message: ' + response.statusCode + ' - ' + response.statusMessage);
@@ -363,12 +360,12 @@ const processEvent = (event, context) => {
 	});
 };
 
-exports.handler = (event, context) => {
+exports.handler = (event, context, callback) => {
 	if (hookUrl) {
-		processEvent(event, context);
+		processEvent(event, context, callback);
 	} else if (config.unencryptedHookUrl) {
 		hookUrl = config.unencryptedHookUrl;
-		processEvent(event, context);
+		processEvent(event, context, callback);
 	} else if (config.kmsEncryptedHookUrl && config.kmsEncryptedHookUrl !== '<kmsEncryptedHookUrl>') {
 		var encryptedBuf = new Buffer(config.kmsEncryptedHookUrl, 'base64');
 		var cipherText = { CiphertextBlob: encryptedBuf };
@@ -377,10 +374,10 @@ exports.handler = (event, context) => {
 		kms.decrypt(cipherText, (err, data) => {
 			if (err) {
 				console.log('decrypt error: ' + err);
-				processEvent(event, context);
+				processEvent(event, context, callback);
 			} else {
 				hookUrl = 'https://' + data.Plaintext.toString('ascii');
-				processEvent(event, context);
+				processEvent(event, context, callback);
 			}
 		});
 	} else {
