@@ -4,9 +4,6 @@ An [AWS Lambda](http://aws.amazon.com/lambda/) function for better
 Fleep (based on the [original Slack repo](https://github.com/assertible/lambda-cloudwatch-slack))
 notifications. [Check out the blog post](https://assertible.com/blog/npm-package-lambda-cloudwatch-slack).
 
-[![BuildStatus](https://travis-ci.org/assertible/lambda-cloudwatch-slack.png?branch=master)](https://travis-ci.org/assertible/lambda-cloudwatch-slack)
-[![NPM version](https://badge.fury.io/js/lambda-cloudwatch-slack.png)](http://badge.fury.io/js/lambda-cloudwatch-slack)
-
 
 ## Overview
 
@@ -17,21 +14,25 @@ ways:
 
 **Better default formatting for CloudWatch notifications:**
 
-![AWS Cloud Notification for Slack](https://github.com/assertible/lambda-cloudwatch-slack/raw/master/images/cloudwatch.png)
+![AWS Cloud Notification for Fleep](https://github.com/pasevin/lambda-cloudwatch-fleep/raw/master/images/cloudwatch.png)
 
 **Support for notifications from Elastic Beanstalk:**
 
-![Elastic Beanstalk Slack Notifications](https://github.com/assertible/lambda-cloudwatch-slack/raw/master/images/elastic-beanstalk.png)
+![Elastic Beanstalk Fleep Notifications](https://github.com/pasevin/lambda-cloudwatch-fleep/raw/master/images/elastic-beanstalk.png)
 
 **Support for notifications from Code Deploy:**
 
-![AWS CodeDeploy Notifications](https://github.com/assertible/lambda-cloudwatch-slack/raw/master/images/code-deploy.png)
+![AWS CodeDeploy Notifications](https://github.com/pasevin/lambda-cloudwatch-fleep/raw/master/images/code-deploy.png)
 
 **Basic support for notifications from ElastiCache:**
 
-![AWS ElastiCache Notifications](https://github.com/assertible/lambda-cloudwatch-slack/raw/master/images/elasticache.png)
+![AWS ElastiCache Notifications](https://github.com/pasevin/lambda-cloudwatch-fleep/raw/master/images/elasticache.png)
 
-**Support for encrypted and unencrypted Slack webhook url:**
+**Support for notifications from CodePipeline:**
+
+![AWS CodePipeline Notifications](https://github.com/pasevin/lambda-cloudwatch-fleep/raw/master/images/code-pipeline.png)
+
+**Support for encrypted and unencrypted Fleep webhook url:**
 
 
 ## Configuration
@@ -46,34 +47,27 @@ Fill in the variables at the top of the `Makefile`. For example, your
 variables may look like this:
 
 ```
-LAMBDA_FUNCTION_NAME=cloudwatch-to-slack
+LAMBDA_FUNCTION_NAME=cloudwatch-to-fleep
 AWS_REGION=us-west-2
 AWS_ROLE=arn:aws:iam::123456789123:role/lambda_exec_role
 AWS_PROFILE=default
 ```
 
-### 2. Setup Slack hook
+### 2. Setup Fleep hook
 
-Follow these steps to configure the webhook in Slack:
+Follow these steps to configure the webhook in Fleep:
 
   1. Navigate to
-     [https://slack.com/services/new](https://slack.com/services/new)
-     and search for and select "Incoming WebHooks".
+     [https://fleep.io/blog/integrations/webhooks/](https://fleep.io/blog/integrations/webhooks/)
+     and follow instructions on how to create "Generic Webhook".
 
-  3. Choose the default channel where messages will be sent and click
-     "Add Incoming WebHooks Integration".
-
-  4. Copy the webhook URL from the setup instructions and use it in
-     the next section.
-
-  5. Click 'Save Settings' at the bottom of the Slack integration
-     page.
+  2. Copy the webhook URL and use it in the next section.
 
 ### 3. Configure AWS Lambda script
 
 Next, open `deploy.env.example`, there are several configuration
 options here. At a minimum, you must fill out `UNENCRYPTED_HOOK_URL`
-(or `KMS_ENCRYPTED_HOOK_URL`) and `SLACK_CHANNEL` (the name of the Slack room to send messages).
+(or `KMS_ENCRYPTED_HOOK_URL`) and `FLEEP_USERNAME`.
 
 When you're done, copy the file to `deploy.env`:
 
@@ -81,23 +75,23 @@ When you're done, copy the file to `deploy.env`:
 $ cp deploy.env.example deploy.env
 ```
 
-#### Encrypted the Slack webhook URL
+#### Encrypted the Fleep webhook URL
 
 If you don't want or need to encrypt your hook URL, you can use the
 `UNENCRYPTED_HOOK_URL`.  If this variable is specified, the
 `KMS_ENCRYPTED_HOOK_URL` is ignored.
 
 If you **do** want to encrypt your hook URL, follow these steps to
-encrypt your Slack hook URL for use in this function:
+encrypt your Fleep hook URL for use in this function:
 
   1. Create a KMS key -
      http://docs.aws.amazon.com/kms/latest/developerguide/create-keys.html.
 
   2. Encrypt the event collector token using the AWS CLI.
-     $ aws kms encrypt --key-id alias/<KMS key name> --plaintext "<SLACK_HOOK_URL>"
+     $ aws kms encrypt --key-id alias/<KMS key name> --plaintext "<FLEEP_HOOK_URL>"
 
      Note: You must exclude the protocol from the URL
-     (e.g. "hooks.slack.com/services/abc123").
+     (e.g. "fleep.io/hook/abc123").
 
   3. Copy the base-64 encoded, encrypted key (CiphertextBlob) to the
      ENCRYPTED_HOOK_URL variable.
