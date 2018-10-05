@@ -267,7 +267,6 @@ const handleAutoScaling = (event) => {
 		status + ' *' + subject + '* \n' +
 		snsSubject +
 		'\n' + message +
-		'\n *' + message.detail.state + ':* CodePipeline ' + changeType +
 		'\n *Description:* ' + message.Description +
 		'\n *Event:* ' + message.Event +
 		'\n *Cause:* ' + message.Cause +
